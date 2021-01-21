@@ -3,11 +3,14 @@ package androidlib
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/giantliao/androidlib/tun2Pipe"
 	"github.com/giantliao/beatles-client-lib/app/cmd"
 	"github.com/giantliao/beatles-client-lib/bootstrap"
 	"github.com/giantliao/beatles-client-lib/config"
 	"github.com/giantliao/beatles-client-lib/resource/pacserver"
 	"github.com/giantliao/beatles-client-lib/streamserver"
+	"io"
 	"log"
 	"sync"
 )
@@ -17,6 +20,10 @@ type Beetle struct {
 	VpnMode int
 	BasDir string
 }
+
+var ProtectFD func(fd int32) bool
+var ListenSock io.Writer
+var TunInst *tun2Pipe.Tun2Pipe = nil
 
 
 var beetleInstance *Beetle
@@ -29,7 +36,7 @@ func beetleIsInit() bool {
 	return true
 }
 
-func InitBeetle(basdir string) bool {
+func InitBeetle(basdir string,bypassIPs string) bool {
 	if beetleInstance != nil{
 		return true
 	}
@@ -53,7 +60,13 @@ func InitBeetle(basdir string) bool {
 	cfg:=config.GetCBtlc()
 	cfg.Save()
 
+	tun2Pipe.ByPassInst().Load(bypassIPs)
+
 	return true
+}
+
+func LoadBypassIPs(bypassIPs string)  {
+	tun2Pipe.ByPassInst().Load(bypassIPs)
 }
 
 func StartBeetle() error {
@@ -121,6 +134,8 @@ func StartVpn(minerId string) error  {
 		return errors.New("stream server is started")
 	}
 
+	tun2Pipe.VpnInstance = ListenSock
+
 	cfg := config.GetCBtlc()
 
 	var idx = -1
@@ -136,11 +151,25 @@ func StartVpn(minerId string) error  {
 		return errors.New("not find miners")
 	}
 
+	srvAddr:=fmt.Sprintf("%s:%d",cfg.Miners[idx].Ipv4Addr,cfg.Miners[idx].Port)
+
+	t2s,err:=tun2Pipe.New(srvAddr, func(fd uintptr) {
+		ProtectFD(int32(fd))
+	})
+
+	if err!=nil{
+		return err
+	}
+
 	cfg.CurrentMiner = cfg.Miners[idx].MinerId
 
 	cfg.Save()
 
-	go streamserver.StartStreamServer(idx)
+	go streamserver.StartStreamServer(idx,ProtectFD,t2s.GetTarget,t2s.ProxyClose)
+
+	go t2s.Proxying(nil)
+
+	TunInst = t2s
 
 	return nil
 }
@@ -163,6 +192,11 @@ func StopVpn() error {
 	}
 
 	streamserver.StopStreamserver()
+
+	if TunInst != nil{
+		TunInst.Finish()
+		TunInst = nil
+	}
 
 	return nil
 }
@@ -192,3 +226,18 @@ func VpnIsStarted() bool  {
 	return true
 }
 
+func InputPacket(data []byte)  error{
+	if TunInst == nil {
+		return fmt.Errorf("Tun2Proxy has stopped")
+	}
+	TunInst.InputPacket(data)
+	return nil
+}
+
+func SetGlobalModel(g bool) {
+	tun2Pipe.ByPassInst().SetGlobal(g)
+}
+
+func IsGlobalMode() bool {
+	return tun2Pipe.ByPassInst().IsGlobal()
+}
