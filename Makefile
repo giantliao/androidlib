@@ -18,7 +18,7 @@ tp:=./
 # 	GOARCH=amd64 GOOS=darwin go build  --buildmode=c-archive -o $(BINDIR)/dss.a mac/*.go
 # 	cp mac/callback.h $(BINDIR)/
 android:
-	gomobile bind -v -o $(BINDIR)/dss.aar -target=android github.com/giantliao/androidlib
+	gomobile bind -v -x -o $(BINDIR)/dss.aar -target=android github.com/giantliao/androidlib
 # i:
 # 	gomobile bind -v -o $(BINDIR)/iosLib.framework -target=ios github.com/hyperorchidlab/go-lib/ios
 # 	cp -rf bin/iosLib.framework $(tp)
