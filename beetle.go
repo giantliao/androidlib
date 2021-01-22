@@ -112,7 +112,12 @@ func StopBeetle() error {
 
 	pacserver.StopWebDaemon()
 
-	//setting.ClearProxy()
+	streamserver.StopStreamserver()
+
+	if TunInst != nil{
+		TunInst.Finish()
+		TunInst = nil
+	}
 
 	return nil
 }
