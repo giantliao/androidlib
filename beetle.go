@@ -8,6 +8,7 @@ import (
 	"github.com/giantliao/beatles-client-lib/app/cmd"
 	"github.com/giantliao/beatles-client-lib/bootstrap"
 	"github.com/giantliao/beatles-client-lib/config"
+	"github.com/giantliao/beatles-client-lib/miners"
 	"github.com/giantliao/beatles-client-lib/ping"
 	"github.com/giantliao/beatles-client-lib/resource/pacserver"
 	"github.com/giantliao/beatles-client-lib/streamserver"
@@ -73,7 +74,6 @@ func InitBeetle(basdir string,bypassIPs string) bool {
 
 	tun2Pipe.ByPassInst().Load(bypassIPs)
 
-
 	return true
 }
 
@@ -96,13 +96,13 @@ func StartBeetle() error {
 	}
 
 	cfg:=config.GetCBtlc()
-	if len(cfg.Miners) == 0{
-		err := bootstrap.UpdateBootstrap()
-		if err != nil {
-			log.Println(err.Error())
-			return err
-		}
+
+	err := bootstrap.UpdateBootstrap()
+	if err != nil {
+		log.Println(err.Error())
+		return err
 	}
+
 	if len(cfg.Miners) == 0 {
 		return errors.New("no miner to start vpn")
 	}
@@ -136,10 +136,6 @@ func StopBeetle() error {
 		TunInst.Finish()
 		TunInst = nil
 	}
-
-	config.ProtectFD = nil
-	ListenSock = nil
-
 	return nil
 }
 
@@ -160,8 +156,6 @@ func StartVpn(minerId string) error  {
 		return errors.New("stream server is started")
 	}
 
-	tun2Pipe.VpnInstance = ListenSock
-
 	cfg := config.GetCBtlc()
 
 	var idx = -1
@@ -177,8 +171,9 @@ func StartVpn(minerId string) error  {
 		return errors.New("not find miners")
 	}
 
-	srvAddr:=fmt.Sprintf("%s:%d",cfg.Miners[idx].Ipv4Addr,cfg.Miners[idx].Port)
+	tun2Pipe.VpnInstance = ListenSock
 
+	srvAddr:=fmt.Sprintf("%s:%d",cfg.Miners[idx].Ipv4Addr,cfg.Miners[idx].Port)
 	t2s,err:=tun2Pipe.New(srvAddr, func(fd uintptr) {
 		config.ProtectFD(int32(fd))
 	})
@@ -223,6 +218,9 @@ func StopVpn() error {
 		TunInst.Finish()
 		TunInst = nil
 	}
+
+	config.ProtectFD = nil
+	ListenSock = nil
 
 	return nil
 }
@@ -295,4 +293,17 @@ func Ping(minerId string) (int64,error)  {
 	config.AddPingTestResult(account.BeatleAddress(minerId),tv)
 
 	return tv,nil
+}
+
+
+func FreshMiners() error {
+	flushMachine := miners.NewClientMiners()
+	if flushMachine == nil {
+		return errors.New("may be you are no license")
+	}
+
+	if err := flushMachine.FlushMiners(); err != nil {
+		return err
+	}
+	return nil
 }
