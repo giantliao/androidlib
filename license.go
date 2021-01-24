@@ -119,7 +119,7 @@ func LicenseRenew(tx string) (string,error) {
 
 
 type TransactionItem struct {
-	TxStr string            `json:"tx_str"`
+	TxStr string  			`json:"tx_str"`
 	*db.ClientTranstionItem
 }
 

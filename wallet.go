@@ -60,7 +60,6 @@ func GetWalletInfo() (string,error) {
 
 	j,_:=json.Marshal(*wi)
 
-
 	return string(j),nil
 }
 
