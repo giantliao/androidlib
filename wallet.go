@@ -40,9 +40,9 @@ func OpenWallet(auth string) error {
 }
 
 type WalletInfo struct {
-	EthAddr string
-	BeetleAddr string
-	TrxAddr string
+	EthAddr string		`json:"eth_addr"`
+	BeetleAddr string	`json:"beetle_addr"`
+	TrxAddr string		`json:"trx_addr"`
 }
 
 func GetWalletInfo() (string,error) {
@@ -64,9 +64,9 @@ func GetWalletInfo() (string,error) {
 }
 
 type BeetleBalance struct {
-	Eth float64
-	BtlcGas float64
-	Btlc float64
+	Eth float64		`json:"eth"`
+	BtlcGas float64	`json:"btlc_gas"`
+	Btlc float64	`json:"btlc"`
 }
 
 func Balance() (string,error) {
