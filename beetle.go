@@ -15,6 +15,7 @@ import (
 	"github.com/kprc/libeth/account"
 	"io"
 	"log"
+	"strconv"
 	"sync"
 )
 
@@ -36,16 +37,6 @@ func beetleIsInit() bool {
 		return false
 	}
 	return true
-}
-
-func LoadFromBootsTrap() error {
-	err := bootstrap.UpdateBootstrap()
-	if err != nil {
-		log.Println(err.Error())
-		return err
-	}
-
-	return nil
 }
 
 func InitBeetle(basdir string,bypassIPs string) bool {
@@ -70,11 +61,22 @@ func InitBeetle(basdir string,bypassIPs string) bool {
 
 	cmd.InitCfg()
 	cfg:=config.GetCBtlc()
+
 	cfg.Save()
 
 	tun2Pipe.ByPassInst().Load(bypassIPs)
 
 	return true
+}
+
+func LoadFromBootsTrap() error {
+	err := bootstrap.UpdateBootstrap()
+	if err != nil {
+		log.Println(err.Error())
+		return err
+	}
+
+	return nil
 }
 
 func SetVpnParam( fprotect func(fd int32) bool, listenSock io.Writer)  {
@@ -173,7 +175,7 @@ func StartVpn(minerId string) error  {
 
 	tun2Pipe.VpnInstance = ListenSock
 
-	srvAddr:=fmt.Sprintf("%s:%d",cfg.Miners[idx].Ipv4Addr,cfg.Miners[idx].Port)
+	srvAddr:= ":" + strconv.Itoa(config.GetCBtlc().StreamServerPacPort)
 	t2s,err:=tun2Pipe.New(srvAddr, func(fd uintptr) {
 		config.ProtectFD(int32(fd))
 	})
