@@ -25,7 +25,13 @@ type Beetle struct {
 	BasDir string
 }
 
-var ListenSock io.Writer
+type VpnDelegate interface {
+	Bypass(fd int32) bool
+	io.Writer
+	VpnClosed()
+}
+
+var androidDelegate VpnDelegate
 var TunInst *tun2Pipe.Tun2Pipe = nil
 
 
@@ -78,12 +84,6 @@ func LoadFromBootsTrap() error {
 
 	return nil
 }
-
-func SetVpnParam( fprotect func(fd int32) bool, listenSock io.Writer)  {
-	config.ProtectFD = fprotect
-	ListenSock = listenSock
-}
-
 
 func LoadBypassIPs(bypassIPs string)  {
 	tun2Pipe.ByPassInst().Load(bypassIPs)
@@ -141,7 +141,7 @@ func StopBeetle() error {
 	return nil
 }
 
-func StartVpn(minerId string) error  {
+func StartVpn(minerId string,d VpnDelegate) error  {
 	if !beetleIsInit(){
 		return beetleInitialErr
 	}
@@ -173,7 +173,7 @@ func StartVpn(minerId string) error  {
 		return errors.New("not find miners")
 	}
 
-	tun2Pipe.VpnInstance = ListenSock
+	tun2Pipe.VpnInstance = d
 
 	srvAddr:= ":" + strconv.Itoa(config.GetCBtlc().StreamServerPacPort)
 	t2s,err:=tun2Pipe.New(srvAddr, func(fd uintptr) {
@@ -183,10 +183,13 @@ func StartVpn(minerId string) error  {
 	if err!=nil{
 		return err
 	}
+	config.ProtectFD = d.Bypass
 
 	cfg.CurrentMiner = cfg.Miners[idx].MinerId
 
 	cfg.Save()
+
+	androidDelegate = d
 
 	go streamserver.StartStreamServer(idx,config.ProtectFD,t2s.GetTarget,t2s.ProxyClose)
 
@@ -221,8 +224,12 @@ func StopVpn() error {
 		TunInst = nil
 	}
 
+	androidDelegate.VpnClosed()
+
 	config.ProtectFD = nil
-	ListenSock = nil
+
+	androidDelegate = nil
+
 
 	return nil
 }
