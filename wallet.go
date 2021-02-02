@@ -4,10 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/giantliao/beatles-client-lib/clientwallet"
-	"github.com/giantliao/beatles-client-lib/coin"
-	"github.com/giantliao/beatles-client-lib/config"
-	"github.com/kprc/libeth/wallet"
-	"math/big"
 )
 
 var beetleInitialErr = errors.New("beetle is not initialized")
@@ -39,23 +35,17 @@ func OpenWallet(auth string) error {
 	return nil
 }
 
-type WalletInfo struct {
-	EthAddr string		`json:"eth_addr"`
-	BeetleAddr string	`json:"beetle_addr"`
-	TrxAddr string		`json:"trx_addr"`
-}
+
 
 func GetWalletInfo() (string,error) {
 	if !IsWalletOpen(){
 		return "",errors.New("wallet not opened")
 	}
 
-	w,_:=clientwallet.GetWallet()
+	wi,err:=clientwallet.GetWalletInfo()
 
-	wi:=&WalletInfo{
-		EthAddr: w.AccountString(),
-		BeetleAddr: w.BtlAddress().String(),
-		TrxAddr: "",
+	if err!=nil{
+		return "", err
 	}
 
 	j,_:=json.Marshal(*wi)
@@ -63,39 +53,19 @@ func GetWalletInfo() (string,error) {
 	return string(j),nil
 }
 
-type BeetleBalance struct {
-	Eth float64		`json:"eth"`
-	BtlcGas float64	`json:"btlc_gas"`
-	Btlc float64	`json:"btlc"`
-}
+
 
 func Balance() (string,error) {
 	if !IsWalletOpen(){
 		return "",errors.New("wallet not opened")
 	}
 
-	w,_:=clientwallet.GetWallet()
-
-	b:=&BeetleBalance{}
-	var err error
-	b.Eth,err = w.BalanceOf(true)
+	wb,err:=clientwallet.GetBalance()
 	if err!=nil{
-		return "",err
-	}
-	b.BtlcGas, err=w.BalanceOfGas(config.GetCBtlc().BTLCAccessPoint)
-	if err!=nil{
-		return "",err
+		return "", err
 	}
 
-	var btlc *big.Int
-
-	btlc, err = coin.GetBTLCoinToken().BtlCoinBalance(w.Address())
-	if err!=nil{
-		return "",err
-	}
-	b.Btlc = wallet.BalanceHuman(btlc)
-
-	j,_:=json.Marshal(*b)
+	j,_:=json.Marshal(*wb)
 
 	return string(j),nil
 }
